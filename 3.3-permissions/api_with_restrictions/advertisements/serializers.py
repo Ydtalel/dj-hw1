@@ -23,7 +23,7 @@ class AdvertisementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Advertisement
         fields = ('id', 'title', 'description', 'creator',
-                  'status', 'created_at', )
+                  'status', 'created_at',)
 
     def create(self, validated_data):
         """Метод для создания"""
@@ -40,6 +40,10 @@ class AdvertisementSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Метод для валидации. Вызывается при создании и обновлении."""
 
-        # TODO: добавьте требуемую валидацию
-
+        creator = self.context["request"].user
+        counter = Advertisement.objects.filter(creator__username=creator, status='OPEN').count()
+        print(counter)
+        if counter >= 10:
+            raise serializers.ValidationError('У вас уже 10 объявлений в статусе OPEN, создание объявления'
+                                              ' невозможно.')
         return data
