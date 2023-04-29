@@ -16,6 +16,9 @@ class AdvertisementViewSet(ModelViewSet):
     serializer_class = AdvertisementSerializer
     filterset_class = AdvertisementFilter
 
+    def get_queryset(self):
+        pass
+
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsOwnerOrAdminOrReadOnly()]
