@@ -30,7 +30,10 @@ class Advertisement(models.Model):
         auto_now=True
     )
 
-    # favorites = models.ManyToManyField(
-    #     settings.AUTH_USER_MODEL,
-    #     related_name='advertisements', blank=True, null=True
-    # )
+
+class Favorite(models.Model):
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorites', blank=True,
+                               null=True)
+    advertisement = models.ForeignKey(Advertisement, on_delete=models.CASCADE, related_name='favorites', blank=True,
+                                      null=True)
+

@@ -2,12 +2,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
-
+from django.db.models import Q
 
 from .filters import AdvertisementFilter
-from .models import Advertisement
+from .models import Advertisement, AdvertisementStatusChoices, Favorite
 from .permissions import IsOwnerOrAdminOrReadOnly
-from .serializers import AdvertisementSerializer
+from .serializers import AdvertisementSerializer, FavoriteSerializer
 
 
 class AdvertisementViewSet(ModelViewSet):
@@ -17,64 +17,36 @@ class AdvertisementViewSet(ModelViewSet):
     filterset_class = AdvertisementFilter
 
     def get_queryset(self):
-        pass
+        user_ = self.request.user
+        queryset = Advertisement.objects.filter(Q(status=AdvertisementStatusChoices.OPEN)
+                                                | Q(status=AdvertisementStatusChoices.CLOSED))
+
+        if user_.is_authenticated:
+            draft_query = Q(status=AdvertisementStatusChoices.DRAFT) & Q(creator=user_)
+            queryset |= Advertisement.objects.filter(draft_query)
+
+        return queryset
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsOwnerOrAdminOrReadOnly()]
         return []
 
-    # @action(detail=True, methods=['post'])
-    # def add_fav(self, request, pk=None):
-    #     user = self.get_object()
-    #     adv = Advertisement.objects.filter(id=pk)
-    #     serializer = AdvertisementSerializer(data=request.data)
-    #     if serializer.is_valid():
-    #         user.set_password(serializer.validated_data['password'])
-
-    @action(detail=False, methods=['get'])
-    def closed_ads(self, request):
-        closed = Advertisement.objects.filter(status="CLOSED")
-        serializer = AdvertisementSerializer(closed, many=True)
-
+    @action(detail=True, methods=["post"])
+    def add_favorite(self, request, pk=None):
+        advertisement = self.get_object()
+        user = self.request.user
+        if not user.is_authenticated:
+            return Response({"error": "You must be logged in to add favorites."})
+        favorite = Favorite.objects.create(author=user, advertisement=advertisement)
+        serializer = FavoriteSerializer(favorite)
         return Response(serializer.data)
 
-    # @action(detail=True, methods=['get'])
-    # def add_favorite(self, request, pk=None):
-    #     adv = self.get_object()
-    #     adv.favorites =
-    #
-    #     serializer = AdvertisementSerializer(adv)
-    #     if serializer.is_valid():
-    #         self.get_object().favorites.add_favorite(serializer.validated_data)
-    #     print(serializer)
-    #
-    #     return Response(serializer.data)
-
-    # @action(detail=True, methods=['post'])
-    # def custom_action(self, request, pk=None):
-    #     instance = self.get_object()
-    #     # Do something with the object
-    #     serializer = self.get_serializer(instance)
-    #     return Response(serializer.data)
-
-    # @action(detail=True, methods=['post'])
-    # def set_password(self, request, pk=None):
-    #     user = self.get_object()
-    #     serializer = PasswordSerializer(data=request.data)
-    #     if serializer.is_valid():
-    #         user.set_password(serializer.validated_data['password'])
-    #         user.save()
-    #         return Response({'status': 'password set'})
-
-# @action(methods=['post'], detail=True)
-#     def follow(self, request, *args, **kwargs):
-#         user = self.get_object()
-#         target_user = int(kwargs['target_id'])
-#         Follow.objects.create(user=user, target=target_user)
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-
-# urlpatterns = [
-#                   path('users/<int:pk>/follow/<int:target_id>/', UserViewSet.as_view({"post": "follow"}))
-
-              # ]
+    @action(detail=False, methods=["get"])
+    def get_favorites(self, request, pk=None):
+        user = self.request.user
+        if not user.is_authenticated:
+            return Response({"error": "You must be logged in to add favorites."})
+        favorites = Favorite.objects.filter(author=user)
+        serializer = FavoriteSerializer(favorites, many=True)
+        return Response(serializer.data)
